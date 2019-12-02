@@ -2,15 +2,15 @@
 # -*- coding: utf8 -*-
 
 import RPi.GPIO as GPIO
-import MFRC522_p3
+import MFRC522
 import signal
 
-name=input("Gib einen Kartennamen ein: ")
+name=input("Please enter the name for the card: ")
 if len(name)>16:
     name=name[:16]
 data = [ord(x) for x in list(name)]
 
-rfid = MFRC522_p3.MFRC522()
+rfid = MFRC522.MFRC522()
 
 reading = True
 while reading:

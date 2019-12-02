@@ -2,7 +2,7 @@
 # -*- coding: utf8 -*-
 
 import RPi.GPIO as GPIO
-import MFRC522_p3
+import MFRC522
 import signal
 import time
 
@@ -20,7 +20,7 @@ def end_read(signal, frame):
 signal.signal(signal.SIGINT, end_read)
 
 # Create an object of the class MFRC522
-rfid = MFRC522_p3.MFRC522()
+rfid = MFRC522.MFRC522()
 
 # Welcome message
 print("Welcome to the MFRC522 data read example")
