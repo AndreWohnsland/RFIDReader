@@ -2,6 +2,9 @@ import sys
 import time
 import traceback
 import string
+import RPi.GPIO as GPIO
+import MFRC522
+import signal
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -41,7 +44,7 @@ class MainScreen(QMainWindow, Ui_MainWindow):
         # if successfull opens new window with message and tries to scan card
         else:
             text = f"Name ist gültig.\nNeuer Name: {new_name}.\nBitte Karte ans Terminal\nhalten zum überschreiben."
-            self.acceptWindow = ScanWindow(self, text)
+            self.acceptWindow = ScanWindow(self, text, new_name=new_name)
             self.acceptWindow.show()
             self.LE_curr_name.setText("")
             self.LE_new_name.setText("")
@@ -55,14 +58,24 @@ class MainScreen(QMainWindow, Ui_MainWindow):
         Returns:
             bool: Only emmits if the scanning loop was ended
         """
-        somesignal = True
+        rfid = MFRC522.MFRC522()
         # Scans continiously for a new card and sleeps shortly
         while self.scanning:
-            time.sleep(1)
-            # if a valid card was selected, get the written data on the card
-            if somesignal:
-                scanned_name = "Name"
-                progress_callback.emit(scanned_name)
+            # first gets the status and userid
+            (status, uid) = rfid.MFRC522_Anticoll()
+            # if its a valid card, get the keys, and tags
+            if status == rfid.MI_OK:
+                key = [0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
+                rfid.MFRC522_SelectTag(uid)
+                status = rfid.MFRC522_Auth(rfid.PICC_AUTHENT1A, 8, key, uid)
+
+                # if everything went right, read out the data from the tag and create the name
+                if status == rfid.MI_OK:
+                    data = rfid.MFRC522_Read(8)
+                    scanned_name = ("".join(chr(x) for x in data)).strip()
+                    print(scanned_name)
+                    progress_callback.emit(scanned_name)
+            time.sleep(0.1)
         endstring = True
         return endstring
 
@@ -216,10 +229,12 @@ class KeyboardWidget(QDialog, Ui_Keyboard):
 
 class ScanWindow(QDialog):
 
-    def __init__(self, parent, LE_name="Something went wrong", app_width=800, app_height=480):
+    def __init__(self, parent, LE_name="Something went wrong", new_name=None, app_width=800, app_height=480):
         super(ScanWindow, self).__init__(parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(app_width, app_height)
+        self.new_name = new_name
+        self.data_name = [ord(x) for x in list(new_name)]
         self.ms = parent
         self.backbutton = QPushButton("Abbrechen")
         self.backbutton.setMinimumSize(QSize(0, 150))
@@ -251,15 +266,32 @@ class ScanWindow(QDialog):
         self.threadpool.start(worker)
 
     def cont_scan(self, progress_callback):
+        rfid = MFRC522.MFRC522()
         while self.scanloop:
             print("in second worker!")
-            time.sleep(1)
+            # first gets the status and userid
+            (status, uid) = rfid.MFRC522_Anticoll()
+            # if its a valid card, get the keys, and tags
+            if status == rfid.MI_OK:
+                key = [0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
+                rfid.MFRC522_SelectTag(uid)
+                status = rfid.MFRC522_Auth(rfid.PICC_AUTHENT1A, 8, key, uid)
+
+                # if everything went right, read out the data from the tag and create the name
+                if status == rfid.MI_OK:
+                    for i in range(0,16):
+                        self.data_name.append(0x00)
+                    rfid.MFRC522_Write(8, self.data_name)
+                    rfid.MFRC522_StopCrypto1()
+                    self.scanloop = False
+                    return True
+            time.sleep(0.1)
         print("Scanloop interrupted!")
         return None
 
     def result_scan(self, result):
         if result is not None:
-            print("Successfully returned card value")
+            print("Successfully wrote new card value")
 
     def cancel_me(self):
         self.scanloop = False
