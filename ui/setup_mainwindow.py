@@ -92,7 +92,7 @@ class MainScreen(QMainWindow, Ui_MainWindow):
         Args:
             scanned_name (str): Scanned name
         """
-        print(f"The readed name is: {scanned_name}")
+        print(f"The read name is: {scanned_name}")
         self.LE_curr_name.setText(scanned_name)
 
     def scan_ended(self, endstring):
