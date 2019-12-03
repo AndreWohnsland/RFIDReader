@@ -24,6 +24,7 @@ class MainScreen(QMainWindow, Ui_MainWindow):
         if not self.devenvironment:
             self.setCursor(Qt.BlankCursor)
         self.scanning = True
+        self.this_scan_active = True
         self.threadpool = QThreadPool()
 
         self.pushButton.clicked.connect(self.write_card)
@@ -44,6 +45,7 @@ class MainScreen(QMainWindow, Ui_MainWindow):
         # if successfull opens new window with message and tries to scan card
         else:
             text = f"Name ist gültig.\nNeuer Name: {new_name}.\nBitte Karte ans Terminal\nhalten zum überschreiben."
+            self.this_scan_active = False
             self.acceptWindow = ScanWindow(self, text, new_name=new_name)
             self.acceptWindow.show()
             self.LE_curr_name.setText("")
@@ -61,21 +63,26 @@ class MainScreen(QMainWindow, Ui_MainWindow):
         rfid = MFRC522.MFRC522()
         # Scans continiously for a new card and sleeps shortly
         while self.scanning:
-            # first gets the status and userid
-            (status, uid) = rfid.MFRC522_Anticoll()
-            # if its a valid card, get the keys, and tags
-            if status == rfid.MI_OK:
-                key = [0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
-                rfid.MFRC522_SelectTag(uid)
-                status = rfid.MFRC522_Auth(rfid.PICC_AUTHENT1A, 8, key, uid)
-
-                # if everything went right, read out the data from the tag and create the name
+            if self.this_scan_active:
+                #print("Mainscanloop...")
+                (status, TagType) = rfid.MFRC522_Request(rfid.PICC_REQIDL)
+                #if status == rfid.MI_OK:
+                #    print("card detected")
+                # first gets the status and userid
+                (status, uid) = rfid.MFRC522_Anticoll()
+                # if its a valid card, get the keys, and tags
                 if status == rfid.MI_OK:
-                    data = rfid.MFRC522_Read(8)
-                    scanned_name = ("".join(chr(x) for x in data)).strip()
-                    print(scanned_name)
-                    progress_callback.emit(scanned_name)
-            time.sleep(0.1)
+                    key = [0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
+                    rfid.MFRC522_SelectTag(uid)
+                    status = rfid.MFRC522_Auth(rfid.PICC_AUTHENT1A, 8, key, uid)
+
+                    # if everything went right, read out the data from the tag and create the name
+                    if status == rfid.MI_OK:
+                        data = rfid.MFRC522_Read(8)
+                        scanned_name = ("".join(chr(x) for x in data)).strip()
+                        rfid.MFRC522_StopCrypto1()
+                        progress_callback.emit(scanned_name)
+                time.sleep(0.1)
         endstring = True
         return endstring
 
@@ -85,7 +92,7 @@ class MainScreen(QMainWindow, Ui_MainWindow):
         Args:
             scanned_name (str): Scanned name
         """
-        print(f"The new name is: {scanned_name}")
+        print(f"The readed name is: {scanned_name}")
         self.LE_curr_name.setText(scanned_name)
 
     def scan_ended(self, endstring):
@@ -268,8 +275,9 @@ class ScanWindow(QDialog):
     def cont_scan(self, progress_callback):
         rfid = MFRC522.MFRC522()
         while self.scanloop:
-            print("in second worker!")
+            #print("in second worker!")
             # first gets the status and userid
+            (status, TagType) = rfid.MFRC522_Request(rfid.PICC_REQIDL)
             (status, uid) = rfid.MFRC522_Anticoll()
             # if its a valid card, get the keys, and tags
             if status == rfid.MI_OK:
@@ -280,10 +288,12 @@ class ScanWindow(QDialog):
                 # if everything went right, read out the data from the tag and create the name
                 if status == rfid.MI_OK:
                     for i in range(0,16):
-                        self.data_name.append(0x00)
+                        self.data_name.append(0x20)
                     rfid.MFRC522_Write(8, self.data_name)
                     rfid.MFRC522_StopCrypto1()
                     self.scanloop = False
+                    self.ms.this_scan_active = True
+                    self.close()
                     return True
             time.sleep(0.1)
         print("Scanloop interrupted!")
@@ -295,6 +305,7 @@ class ScanWindow(QDialog):
 
     def cancel_me(self):
         self.scanloop = False
+        self.ms.this_scan_active = True
         self.close()
 
 

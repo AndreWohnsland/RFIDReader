@@ -35,7 +35,7 @@ while reading:
         
         if status == rfid.MI_OK:
             for x in range(0,16):
-                data.append(0x00)
+                data.append(0x20)
 
             print("The original data was:")
             # Read block 8
