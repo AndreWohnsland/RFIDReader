@@ -6,7 +6,7 @@ with the MFRC522 class. Best way to do this is:
 ```
 git clone https://github.com/lthiery/SPI-Py.git
 cd SPI-Py
-git checkout -b 8cce26b9ee6e69eb041e9d5665944b88688fca68
+git checkout 8cce26b9ee6e69eb041e9d5665944b88688fca68
 sudo python setup.py install
 sudo python3 setup.py install
 ```
